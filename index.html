@@ -20,80 +20,90 @@
         var map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: [-58.3816, -34.6037], // Coordenadas para CABA
+            center: [-58.3816, -34.6037], // CABA
             zoom: 15 // Ajusta el nivel de zoom según tu preferencia
         });
 
         var marker;
         var destination = [-58.3816, -34.6037]; // Coordenadas del destino
 
-        // Obtener la ubicación actual del usuario y actualizarla en el mapa
-        navigator.geolocation.watchPosition(
-            function(position) {
-                var lat = position.coords.latitude;
-                var lng = position.coords.longitude;
+        // Función para manejar errores de geolocalización
+        function handleLocationError(error) {
+            console.error('Error al obtener la ubicación:', error.message);
+            alert('No se pudo acceder a la ubicación. Por favor, verifica los permisos de la aplicación.');
+        }
 
-                if (!marker) {
-                    // Crear un nuevo marker si aún no existe
-                    marker = new mapboxgl.Marker()
-                        .setLngLat([lng, lat])
-                        .addTo(map);
-                } else {
-                    // Actualizar la posición del marker existente
-                    marker.setLngLat([lng, lat]);
-                }
+        // Intentar obtener la ubicación actual del usuario
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(
+                function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
 
-                // Centrar el mapa en la nueva ubicación
-                map.setCenter([lng, lat]);
+                    if (!marker) {
+                        // Crear un nuevo marker si aún no existe
+                        marker = new mapboxgl.Marker()
+                            .setLngLat([lng, lat])
+                            .addTo(map);
+                    } else {
+                        // Actualizar la posición del marker existente
+                        marker.setLngLat([lng, lat]);
+                    }
 
-                // Solicitar la ruta desde la ubicación actual al destino
-                var directionsRequest = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + lng + ',' + lat + ';' + destination.join(',') + '?geometries=geojson&access_token=' + mapboxgl.accessToken;
+                    // Centrar el mapa en la nueva ubicación
+                    map.setCenter([lng, lat]);
 
-                fetch(directionsRequest)
-                    .then(response => response.json())
-                    .then(data => {
-                        var route = data.routes[0].geometry;
+                    // Solicitar la ruta desde la ubicación actual al destino
+                    var directionsRequest = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + lng + ',' + lat + ';' + destination.join(',') + '?geometries=geojson&access_token=' + mapboxgl.accessToken;
 
-                        // Eliminar cualquier ruta existente antes de agregar una nueva
-                        if (map.getSource('route')) {
-                            map.getSource('route').setData({
-                                type: 'Feature',
-                                properties: {},
-                                geometry: route
-                            });
-                        } else {
-                            map.addLayer({
-                                id: 'route',
-                                type: 'line',
-                                source: {
-                                    type: 'geojson',
-                                    data: {
-                                        type: 'Feature',
-                                        properties: {},
-                                        geometry: route
+                    fetch(directionsRequest)
+                        .then(response => response.json())
+                        .then(data => {
+                            var route = data.routes[0].geometry;
+
+                            // Eliminar cualquier ruta existente antes de agregar una nueva
+                            if (map.getSource('route')) {
+                                map.getSource('route').setData({
+                                    type: 'Feature',
+                                    properties: {},
+                                    geometry: route
+                                });
+                            } else {
+                                map.addLayer({
+                                    id: 'route',
+                                    type: 'line',
+                                    source: {
+                                        type: 'geojson',
+                                        data: {
+                                            type: 'Feature',
+                                            properties: {},
+                                            geometry: route
+                                        }
+                                    },
+                                    layout: {
+                                        'line-join': 'round',
+                                        'line-cap': 'round'
+                                    },
+                                    paint: {
+                                        'line-color': '#3887be',
+                                        'line-width': 5,
+                                        'line-opacity': 0.75
                                     }
-                                },
-                                layout: {
-                                    'line-join': 'round',
-                                    'line-cap': 'round'
-                                },
-                                paint: {
-                                    'line-color': '#3887be',
-                                    'line-width': 5,
-                                    'line-opacity': 0.75
-                                }
-                            });
-                        }
-                    })
-                    .catch(error => console.error('Error al obtener la ruta:', error));
-            },
-            function(error) {
-                console.error('Error al obtener la ubicación:', error);
-            },
-            {
-                enableHighAccuracy: true
-            }
-        );
+                                });
+                            }
+                        })
+                        .catch(error => console.error('Error al obtener la ruta:', error));
+                },
+                handleLocationError, // Función de manejo de errores
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000, // Tiempo máximo de espera antes de lanzar un error
+                    maximumAge: 0 // No usar una ubicación en caché, se requiere la más actual
+                }
+            );
+        } else {
+            handleLocationError(new Error('Geolocalización no soportada en este dispositivo.'));
+        }
     </script>
 </body>
 </html>
