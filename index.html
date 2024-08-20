@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mapa con Mapbox</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        mapboxgl.accessToken = 'https://api.mapbox.com/styles/v1/romanprs/clzoqowkw00bl01pc40hu3lg5/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1Ijoicm9tYW5wcnMiLCJhIjoiY2x6b29tN2xpMTFnNTJrbjY0cWVqcjk2ZiJ9.aes-7fnXhltmELbAjs-2YQ'; // Reemplaza 'TU_API_KEY' con tu token de Mapbox
+
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-58.3816, -34.6037], // Coordenadas para CABA
+            zoom: 15 // Ajusta el nivel de zoom según tu preferencia
+        });
+
+        var marker;
+        var destination = [-58.3816, -34.6037]; // Coordenadas del destino
+
+        // Obtener la ubicación actual del usuario y actualizarla en el mapa
+        navigator.geolocation.watchPosition(
+            function(position) {
+                var lat = position.coords.latitude;
+                var lng = position.coords.longitude;
+
+                if (!marker) {
+                    // Crear un nuevo marker si aún no existe
+                    marker = new mapboxgl.Marker()
+                        .setLngLat([lng, lat])
+                        .addTo(map);
+                } else {
+                    // Actualizar la posición del marker existente
+                    marker.setLngLat([lng, lat]);
+                }
+
+                // Centrar el mapa en la nueva ubicación
+                map.setCenter([lng, lat]);
+
+                // Solicitar la ruta desde la ubicación actual al destino
+                var directionsRequest = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + lng + ',' + lat + ';' + destination.join(',') + '?geometries=geojson&access_token=' + mapboxgl.accessToken;
+
+                fetch(directionsRequest)
+                    .then(response => response.json())
+                    .then(data => {
+                        var route = data.routes[0].geometry;
+
+                        // Eliminar cualquier ruta existente antes de agregar una nueva
+                        if (map.getSource('route')) {
+                            map.getSource('route').setData({
+                                type: 'Feature',
+                                properties: {},
+                                geometry: route
+                            });
+                        } else {
+                            map.addLayer({
+                                id: 'route',
+                                type: 'line',
+                                source: {
+                                    type: 'geojson',
+                                    data: {
+                                        type: 'Feature',
+                                        properties: {},
+                                        geometry: route
+                                    }
+                                },
+                                layout: {
+                                    'line-join': 'round',
+                                    'line-cap': 'round'
+                                },
+                                paint: {
+                                    'line-color': '#3887be',
+                                    'line-width': 5,
+                                    'line-opacity': 0.75
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Error al obtener la ruta:', error));
+            },
+            function(error) {
+                console.error('Error al obtener la ubicación:', error);
+            },
+            {
+                enableHighAccuracy: true
+            }
+        );
+    </script>
+</body>
+</html>
